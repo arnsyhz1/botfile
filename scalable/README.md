@@ -53,3 +53,10 @@ Jika job gagal, delay retry mengikuti pola:
 ## Catatan kompatibilitas
 - Tidak ada perubahan pada file `bot.php`.
 - Jika ingin rollback, cukup kembalikan webhook Telegram ke endpoint lama (`bot.php`).
+
+
+## Troubleshooting (bot tidak respon)
+1. Pastikan worker aktif (`php scalable/worker.php`) atau pool aktif (`php scalable/worker_pool.php`).
+2. Cek dashboard, jika `pending` terus naik artinya worker belum jalan / crash.
+3. Jalankan worker di foreground dan lihat log error.
+4. Mode queue menjalankan `bot.php` via CLI, jadi `bot.php` sudah mendukung baca payload dari `STDIN` saat `php://input` kosong.

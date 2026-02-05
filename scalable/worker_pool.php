@@ -2,17 +2,27 @@
 
 declare(strict_types=1);
 
-require __DIR__ . '/bootstrap.php';
+$config = require __DIR__ . '/config.php';
 
 $poolSize = max(1, (int)$config['worker_pool']['size']);
 $children = [];
 $workerScript = __DIR__ . '/worker.php';
 
+$descriptorSpec = [
+    0 => ['file', '/dev/null', 'r'],
+    1 => ['file', 'php://stdout', 'a'],
+    2 => ['file', 'php://stderr', 'a'],
+];
+
 fwrite(STDOUT, "[pool] starting {$poolSize} workers\n");
 
-for ($i = 1; $i <= $poolSize; $i++) {
+$startWorker = static function (string $workerScript, array $descriptorSpec): mixed {
     $cmd = sprintf('php %s', escapeshellarg($workerScript));
-    $proc = proc_open($cmd, [STDIN, STDOUT, STDERR], $pipes);
+    return proc_open($cmd, $descriptorSpec, $pipes);
+};
+
+for ($i = 1; $i <= $poolSize; $i++) {
+    $proc = $startWorker($workerScript, $descriptorSpec);
 
     if (!is_resource($proc)) {
         fwrite(STDERR, "[pool] gagal start worker-{$i}\n");
@@ -36,12 +46,10 @@ while (true) {
     foreach ($children as $k => $child) {
         $status = proc_get_status($child['process']);
         if (!$status['running']) {
-            fwrite(STDERR, "[pool] worker-{$child['index']} exited, restarting...\n");
+            fwrite(STDERR, "[pool] worker-{$child['index']} exited ({$status['exitcode']}), restarting...\n");
             proc_close($child['process']);
 
-            $cmd = sprintf('php %s', escapeshellarg($workerScript));
-            $proc = proc_open($cmd, [STDIN, STDOUT, STDERR], $pipes);
-
+            $proc = $startWorker($workerScript, $descriptorSpec);
             if (!is_resource($proc)) {
                 fwrite(STDERR, "[pool] worker-{$child['index']} restart gagal\n");
                 unset($children[$k]);

@@ -370,7 +370,13 @@ function buildCategoryKeyboard(): string
 //////////////////////////
 
 $raw = file_get_contents('php://input');
-if (!$raw) {
+
+// Saat dijalankan via CLI worker, payload masuk dari STDIN (bukan php://input).
+if ((!$raw || trim($raw) === '') && PHP_SAPI === 'cli') {
+    $raw = stream_get_contents(STDIN);
+}
+
+if (!$raw || trim($raw) === '') {
     exit;
 }
 
